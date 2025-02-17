@@ -5,12 +5,12 @@ package main
 // 1. Limit the number of API requests a user can make in a fixed time window (e.g., 100 requests per minute).
 // 2. Return an appropriate response (e.g., HTTP 429 - Too Many Requests) when the limit is exceeded.
 // 3. Support multiple users, each with their own independent rate limit tracking.
-//
+
 // Key Considerations:
 // Use in-memory data structures to track requests.
 // Ensure efficiency and scalability.
 // Handle edge cases like `burst traffic` and `time window` overlaps.
-//
+
 // Extensions:
 // Make the time window and request limit configurable.
 // Discuss how this could scale in a distributed system.
