@@ -7,54 +7,54 @@ import (
 )
 
 type RequestInfos struct {
-	rateLimit  uint
-	timeWindow time.Duration
+	RateLimit  uint
+	TimeWindow time.Duration
 
-	userRequestMap map[string]userRequest
+	UserRequestMap map[string]userRequest
 }
 
 type userRequest struct {
-	requestCount uint
-	lastTime     time.Time
+	RequestCount     uint      `json:"RequestCount"`
+	SessionStartTime time.Time `json:"SessionStartTime"`
 }
 
-func New(ratelimit uint, tempTimeWindow time.Duration) RequestInfos {
+func New(RateLimit uint, tempTimeWindow time.Duration) RequestInfos {
 	return RequestInfos{
-		rateLimit:      ratelimit,
-		timeWindow:     tempTimeWindow,
-		userRequestMap: make(map[string]userRequest),
+		RateLimit:      RateLimit,
+		TimeWindow:     tempTimeWindow,
+		UserRequestMap: make(map[string]userRequest),
 	}
 }
 
 func (ri RequestInfos) AddNewUser(userId string) {
-	ri.userRequestMap[userId] = userRequest{
-		requestCount: 0,
-		lastTime:     time.Now(),
+	ri.UserRequestMap[userId] = userRequest{
+		RequestCount:     0,
+		SessionStartTime: time.Now(),
 	}
 }
 
-// Validates the user's ratelimit
-func (ri RequestInfos) CanUserAccess(c *gin.Context) bool {
+// Validates the user's RateLimit
+func (ri RequestInfos) ValidateUserAccess(c *gin.Context) bool {
 	// * Recognize the user, Then request-count of the user within the time-limit.
 	userId := c.Request.Header.Get("userId")
 
 	// Check if user already exist otherise store user info
-	userInfo, ok := ri.userRequestMap[userId]
+	userInfo, ok := ri.UserRequestMap[userId]
 	if !ok {
 		ri.AddNewUser(userId)
-		userInfo = ri.userRequestMap[userId]
+		userInfo = ri.UserRequestMap[userId]
 	}
 
-	// Put a condition to refresh userInfo.lastTime on over timeWindow
-	if time.Since(userInfo.lastTime) > ri.timeWindow {
-		userInfo.lastTime = time.Now()
-		userInfo.requestCount = 0
+	// Put a condition to refresh userInfo.SessionStartTime on over TimeWindow
+	if time.Since(userInfo.SessionStartTime) > ri.TimeWindow {
+		userInfo.SessionStartTime = time.Now()
+		userInfo.RequestCount = 0
 	}
 
 	// Store UserID -> RequestCount
-	if userInfo.requestCount < ri.rateLimit {
-		userInfo.requestCount++
-		ri.userRequestMap[userId] = userInfo
+	if userInfo.RequestCount < ri.RateLimit {
+		userInfo.RequestCount++
+		ri.UserRequestMap[userId] = userInfo
 		return true
 	}
 

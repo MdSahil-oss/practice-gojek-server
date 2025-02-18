@@ -1,31 +1,12 @@
 package main
 
-// Rate Limiter Problem Statement
-// Design and implement a rate-limiting service for an API. The service should:
-// 1. Limit the number of API requests a user can make in a fixed time window (e.g., 100 requests per minute).
-// 2. Return an appropriate response (e.g., HTTP 429 - Too Many Requests) when the limit is exceeded.
-// 3. Support multiple users, each with their own independent rate limit tracking.
-
-// Key Considerations:
-// Use in-memory data structures to track requests.
-// Ensure efficiency and scalability.
-// Handle edge cases like `burst traffic` and `time window` overlaps.
-
-// Extensions:
-// Make the time window and request limit configurable.
-// Discuss how this could scale in a distributed system.
-
-/*
-Future plan:
-* Make validate_user_access package initialigible to accept values UserID, RequestCount, TimeWindow.
-* Create multiple endpoints for diffrent type of requests (e.g. GET, POST)
-*/
-
 import (
 	"fmt"
 	validateuseraccess "gojek-first/validate_user_access"
 	"net/http"
 	"time"
+
+	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,19 +23,55 @@ func main() {
 	requestInfos = validateuseraccess.New(100, time.Minute)
 
 	router.GET("/", getRootRequest)
+	router.GET("/get-users", getUsersRequest)
+	// router.POST("/create-user", createUser)
+
 	router.Run("localhost:8080")
 
 	// On that endpoint enable go-routine. So that multiple users can iteract with API endpoint at once.
 }
 
-func getRootRequest(c *gin.Context) {
-	// validateuseraccess.CanUserAccess(c)
-
-	// Store UserID -> RequestCount
-	if requestInfos.CanUserAccess(c) {
-		c.String(http.StatusAccepted, "Successful! root request")
+func getRootRequest(ctx *gin.Context) {
+	if ctx.GetHeader("userId") == "" {
+		ctx.String(http.StatusNotFound, "HTTP 404 - User Not Found\n")
 		return
 	}
 
-	c.String(http.StatusTooManyRequests, "HTTP 429 - Too Many Requests")
+	// Store UserID -> RequestCount
+	if requestInfos.ValidateUserAccess(ctx) {
+		ctx.String(http.StatusAccepted, "Successful! root request\n")
+		return
+	}
+
+	ctx.String(http.StatusTooManyRequests, "HTTP 429 - Too Many Requests\n")
+}
+
+// Implement below one for Post method: https://spdeepak.hashnode.dev/golang-gin-tutorial-3
+// func createUser(ctx *gin.Context) {
+// 	var content string
+// 	// ctx.ShouldBindString(&content)
+// 	fmt.Println("Null for now")
+
+// 	ctx.String(http.StatusTooManyRequests, "On /data endpoint\n")
+// }
+
+func getUsersRequest(ctx *gin.Context) {
+	if ctx.GetHeader("userId") == "" {
+		ctx.String(http.StatusNotFound, "HTTP 404 - User Not Found\n")
+		return
+	}
+
+	// Store UserID -> RequestCount
+	if requestInfos.ValidateUserAccess(ctx) {
+		byteData, err := json.Marshal(requestInfos.UserRequestMap)
+		if err != nil {
+			ctx.Error(err)
+			return
+		}
+
+		ctx.JSON(http.StatusAccepted, string(byteData)+"\n")
+		return
+	}
+
+	ctx.String(http.StatusTooManyRequests, "HTTP 429 - Too Many Requests\n")
 }
