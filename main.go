@@ -12,6 +12,11 @@ import (
 )
 
 var requestInfos validateuseraccess.RequestInfos
+var ErrNullUser error = fmt.Errorf("%d - null user found", http.StatusNotFound)
+
+type postCreateUserContent struct {
+	Name string `json:"name" binding:"required"`
+}
 
 func main() {
 	fmt.Println("Hello Gojek")
@@ -24,7 +29,7 @@ func main() {
 
 	router.GET("/", getRootRequest)
 	router.GET("/get-users", getUsersRequest)
-	// router.POST("/create-user", createUser)
+	router.POST("/create-user", createUser)
 
 	router.Run("localhost:8080")
 
@@ -32,46 +37,59 @@ func main() {
 }
 
 func getRootRequest(ctx *gin.Context) {
-	if ctx.GetHeader("userId") == "" {
-		ctx.String(http.StatusNotFound, "HTTP 404 - User Not Found\n")
+	userId := ctx.GetHeader("userId")
+	if userId == "" {
+		ctx.String(http.StatusNotFound, ErrNullUser.Error())
 		return
 	}
 
 	// Store UserID -> RequestCount
-	if requestInfos.ValidateUserAccess(ctx) {
-		ctx.String(http.StatusAccepted, "Successful! root request\n")
+	if err := requestInfos.ValidateUserAccess(userId); err != nil {
+		ctx.Error(err)
+		if err == validateuseraccess.ErrUserNotExist {
+			ctx.String(http.StatusNotFound, err.Error())
+		} else {
+			ctx.String(http.StatusTooManyRequests, err.Error())
+		}
 		return
 	}
 
-	ctx.String(http.StatusTooManyRequests, "HTTP 429 - Too Many Requests\n")
+	ctx.String(http.StatusAccepted, "Successful! root request\n")
 }
 
 // Implement below one for Post method: https://spdeepak.hashnode.dev/golang-gin-tutorial-3
-// func createUser(ctx *gin.Context) {
-// 	var content string
-// 	// ctx.ShouldBindString(&content)
-// 	fmt.Println("Null for now")
+func createUser(ctx *gin.Context) {
+	var content postCreateUserContent
+	ctx.ShouldBindJSON(&content)
 
-// 	ctx.String(http.StatusTooManyRequests, "On /data endpoint\n")
-// }
+	if !requestInfos.IsUserExist(content.Name) {
+		requestInfos.AddNewUser(content.Name)
+		ctx.String(http.StatusCreated, "Successful! User created\n")
+		return
+	}
+
+	err := fmt.Errorf("%d - Failed! User already exist", http.StatusAlreadyReported)
+	ctx.Error(err)
+	ctx.String(http.StatusAlreadyReported, err.Error())
+}
 
 func getUsersRequest(ctx *gin.Context) {
-	if ctx.GetHeader("userId") == "" {
-		ctx.String(http.StatusNotFound, "HTTP 404 - User Not Found\n")
+	userId := ctx.GetHeader("userId")
+	if userId == "" {
+		ctx.String(http.StatusNotFound, ErrNullUser.Error())
 		return
 	}
 
 	// Store UserID -> RequestCount
-	if requestInfos.ValidateUserAccess(ctx) {
-		byteData, err := json.Marshal(requestInfos.UserRequestMap)
-		if err != nil {
-			ctx.Error(err)
-			return
-		}
+	if err := requestInfos.ValidateUserAccess(userId); err != nil {
+		ctx.Error(err)
+	}
 
-		ctx.JSON(http.StatusAccepted, string(byteData)+"\n")
+	byteData, err := json.Marshal(requestInfos.UserRequestMap)
+	if err != nil {
+		ctx.Error(err)
 		return
 	}
 
-	ctx.String(http.StatusTooManyRequests, "HTTP 429 - Too Many Requests\n")
+	ctx.String(http.StatusAccepted, string(byteData)+"\n")
 }

@@ -1,10 +1,13 @@
 package validate_user_access
 
 import (
+	"fmt"
+	"net/http"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
+
+var ErrTooManyRequest error = fmt.Errorf("%d - user exceeded request limit", http.StatusTooManyRequests)
+var ErrUserNotExist error = fmt.Errorf("%d - user doesn't exist", http.StatusNotFound)
 
 type RequestInfos struct {
 	RateLimit  uint
@@ -34,15 +37,11 @@ func (ri RequestInfos) AddNewUser(userId string) {
 }
 
 // Validates the user's RateLimit
-func (ri RequestInfos) ValidateUserAccess(c *gin.Context) bool {
-	// * Recognize the user, Then request-count of the user within the time-limit.
-	userId := c.Request.Header.Get("userId")
-
+func (ri RequestInfos) ValidateUserAccess(userId string) error {
 	// Check if user already exist otherise store user info
 	userInfo, ok := ri.UserRequestMap[userId]
 	if !ok {
-		ri.AddNewUser(userId)
-		userInfo = ri.UserRequestMap[userId]
+		return ErrUserNotExist
 	}
 
 	// Put a condition to refresh userInfo.SessionStartTime on over TimeWindow
@@ -52,11 +51,18 @@ func (ri RequestInfos) ValidateUserAccess(c *gin.Context) bool {
 	}
 
 	// Store UserID -> RequestCount
-	if userInfo.RequestCount < ri.RateLimit {
-		userInfo.RequestCount++
-		ri.UserRequestMap[userId] = userInfo
-		return true
+	if userInfo.RequestCount > ri.RateLimit {
+		return ErrTooManyRequest
 	}
 
-	return false
+	userInfo.RequestCount++
+	ri.UserRequestMap[userId] = userInfo
+	return nil
+}
+
+func (ri RequestInfos) IsUserExist(userId string) bool {
+	if _, ok := ri.UserRequestMap[userId]; !ok {
+		return false
+	}
+	return true
 }
