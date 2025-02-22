@@ -11,10 +11,12 @@ Design and implement a rate-limiting service for an API. The service should:
 3. Support multiple users, each with their own independent rate limit tracking.
 
 Key Considerations:
-Use in-memory data structures to track requests.
-Ensure efficiency and scalability.
-Handle edge cases like `burst traffic` and `time window` overlaps.
+
+- Used in-memory data structures to track requests.
+- Ensured efficiency and scalability.
+- Handle edge cases like `burst traffic` (time) and `time window` overlaps.
 
 Extensions:
-Make the time window and request limit configurable.
-this could scale in a distributed system.
+
+- Make the time window and request limit configurable.
+- this could scale in a distributed system.
